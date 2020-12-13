@@ -1,0 +1,320 @@
+#include<stdio.h>
+#include<stdlib.h>
+#include<Windows.h>
+#include<conio.h>
+#include<time.h>
+
+#define Map_long 20
+#define Map_high 15
+
+struct snake {
+    int goods_class;
+    int direction;
+};
+
+/* 二维结构体数组里goods_class的值，0代表活动区域（空格），
+* 1代表■（地图砖头）,2代表★（食物），3代表●（蛇头）
+* 3之后的数字代表◎（蛇身），3+蛇长度-1表示◎（蛇尾）*/
+/*direction表示蛇移动的方向，↑8，↓2，←4，→6*/
+//SNAKE Snake[Map_high][Map_long] = { { 0 } };
+struct snake Snake[Map_high][Map_long] = { { 0 } };
+unsigned die = 0;  //1表示游戏结束
+unsigned snake_move = 0;  //移动成功，用来跳出三重循环
+unsigned eat_food = 0;  //1表示碰到食物，2表示用来跳出循环
+unsigned snake_long = 3;  //记录蛇的长度
+
+void Move(int ch);  //蛇移动的函数
+
+void HideCursor();  //隐藏光标函数
+
+int main(void)
+{
+    system("mode con:cols=43 lines=20");  //将控制台设置成长41，高18
+    HideCursor();
+
+    /*定义局部变量区域*/
+    unsigned i, j;
+    unsigned food = 0;  //食物存在的标志，1代表食物存在
+    unsigned food_x, food_y;  //产生食物的临时坐标
+    unsigned score = 0;  //统计分数
+    char ch = '\0';  //用来获取↑↓←→
+
+    /*播种子*/
+    srand((unsigned)time(NULL));
+
+    /*初始化地图*/
+    for (i = 0; i < Map_long; i++)
+    {
+        Snake[0][i].goods_class = 1;
+        Snake[Map_high - 1][i].goods_class = 1;
+    }
+    for (i = 0; i < Map_high; i++)
+    {
+        Snake[i][0].goods_class = 1;
+        Snake[i][Map_long - 1].goods_class = 1;
+    }
+
+    /*初始化蛇的位置*/
+    for (i = 0; i < snake_long; i++)
+        Snake[Map_high / 2][Map_long / 2 + i].goods_class = snake_long + i;
+
+    while (1)
+    {
+        while (!_kbhit())
+        {
+            switch (ch)
+            {
+            case 72:Move(8); break;
+            case 75:Move(4); break;
+            case 77:Move(6); break;
+            case 80:Move(2); break;
+            default:break;
+            }
+
+            if (eat_food == 2)  //2表示吃到食物，开始重置状态
+            {
+                food = 0;  //食物没有了
+                eat_food = 0;  //重新判定是否吃到食物
+                snake_long++;  //蛇的长度加1
+                score++;  //增加分数
+            }
+
+            /*产生食物*/
+            do {
+                if (food == 1)
+                    break;
+                food_x = rand() % Map_long;
+                food_y = rand() % Map_high;
+                if (Snake[food_y][food_x].goods_class == 0)
+                {
+                    Snake[food_y][food_x].goods_class = 2;
+                    food++;
+                    break;
+                }
+            } while (1);
+
+            printf("Grade:%u\n", score);
+            for (i = 0; i < Map_high; i++)
+            {
+                if (die == 1)
+                    break;
+
+                for (j = 0; j < Map_long; j++)
+                {
+                    switch (Snake[i][j].goods_class)
+                    {
+                    case 0:printf("   ");  break;
+                    case 1:printf(" ■"); break;/*★●◎*/
+                    case 2:printf(" * "); break;
+                    case 3:printf("@_@"); break;
+                    default:printf("( )"); break;
+                    }
+                }
+                putchar('\n');
+            }
+            printf("Up↑ Down↓ Left← Right→ Other Pause.");
+
+            Sleep(500);
+            system("cls");
+
+            if (die == 1)
+                break;
+        }
+        if (die == 1)
+            break;
+
+        do {
+            ch = _getch();
+        } while (ch != -32 && ch != 80 && ch != 72 && ch != 77 && ch != 75);
+        ch = _getch();
+    }
+    system("cls");
+    printf("Game Over,your grade is %u.\n", score);
+    getchar();
+    return 0;
+}
+
+void Move(int ch)
+{
+    int i, j, n;
+    int direction;  //临时存储方向
+
+    for (n = 0; n < snake_long; n++)
+        for (i = 0; i < Map_high; i++)
+        {
+           if (snake_move == 1)
+            {
+                snake_move = 0;
+                break;
+            }
+            if (eat_food == 2)
+                break;
+            for (j = 0; j < Map_long; j++)
+                if (Snake[i][j].goods_class == 3 + n)
+                {
+                    /*第一次获取按键，初始化蛇的运动状态*/
+                    if (Snake[i][j].goods_class == 3 && Snake[i][j].direction == 0)
+                    {
+                        Snake[i][j].direction = ch;
+                        Snake[i][j + 1].direction = 4;
+                        Snake[i][j + 2].direction = 4;
+                    }
+                    else if (Snake[i][j].goods_class == 3)  //重置蛇头的方向
+                        Snake[i][j].direction = ch;
+
+                    /*进行移动前，先判断蛇头是否碰到死亡因子*/
+                    if (Snake[i][j].goods_class == 3)
+                    {
+                        if (Snake[i][j].direction == 8 && Snake[i - 1][j].goods_class != 0 && Snake[i - 1][j].goods_class != 2)
+                            die++;
+
+                        else if (Snake[i][j].direction == 2 && Snake[i + 1][j].goods_class != 0 && Snake[i + 1][j].goods_class != 2)
+                            die++;
+
+                        else if (Snake[i][j].direction == 4 && Snake[i][j - 1].goods_class != 0 && Snake[i][j - 1].goods_class != 2)
+                            die++;
+
+                        else if (Snake[i][j].direction == 6 && Snake[i][j + 1].goods_class != 0 && Snake[i][j + 1].goods_class != 2)
+                            die++;
+                    }
+
+                    /*进行移动前，先判断蛇头是否碰到食物*/
+                    if (Snake[i][j].goods_class == 3)
+                    {
+                        if (Snake[i][j].direction == 8 && Snake[i - 1][j].goods_class == 2)
+                            eat_food++;
+
+                        else if (Snake[i][j].direction == 2 && Snake[i + 1][j].goods_class == 2)
+                            eat_food++;
+
+                        else if (Snake[i][j].direction == 4 && Snake[i][j - 1].goods_class == 2)
+                            eat_food++;
+
+                        else if (Snake[i][j].direction == 6 && Snake[i][j + 1].goods_class == 2)
+                            eat_food++;
+                    }
+
+                    if (die == 1)
+                        break;
+
+                    /*蛇尾的移动*/
+                    if (Snake[i][j].goods_class == 3 + snake_long - 1)
+                    {
+                        if (eat_food == 1)  //吃到食物就更新蛇尾
+                        {
+                            if (Snake[i][j].direction == 8)
+                            {
+                                direction = Snake[i - 1][j].direction;
+                                Snake[i - 1][j] = Snake[i][j];
+                                Snake[i - 1][j].direction = direction;
+                                Snake[i][j].goods_class = 3 + snake_long;
+                            }
+                            else if (Snake[i][j].direction == 2)
+                            {
+                                direction = Snake[i + 1][j].direction;
+                                Snake[i + 1][j] = Snake[i][j];
+                                Snake[i + 1][j].direction = direction;
+                                Snake[i][j].goods_class = 3 + snake_long;
+                            }
+                            else if (Snake[i][j].direction == 4)
+                            {
+                                direction = Snake[i][j - 1].direction;
+                                Snake[i][j - 1] = Snake[i][j];
+                                Snake[i][j - 1].direction = direction;
+                                Snake[i][j].goods_class = 3 + snake_long;
+                            }
+                            else if (Snake[i][j].direction == 6)
+                            {
+                                direction = Snake[i][j + 1].direction;
+                                Snake[i][j + 1] = Snake[i][j];
+                                Snake[i][j + 1].direction = direction;
+                                Snake[i][j].goods_class = 3 + snake_long;
+                            }
+                            snake_move++;
+                            eat_food++;
+                            break;
+                        }
+                        else {
+                            if (Snake[i][j].direction == 8)
+                            {
+                                Snake[i][j].direction = Snake[i - 1][j].direction;
+                                Snake[i - 1][j] = Snake[i][j];
+                                Snake[i][j].goods_class = 0;
+                            }
+                            else if (Snake[i][j].direction == 2)
+                            {
+                                Snake[i][j].direction = Snake[i + 1][j].direction;
+                                Snake[i + 1][j] = Snake[i][j];
+                                Snake[i][j].goods_class = 0;
+                            }
+                            else if (Snake[i][j].direction == 4)
+                            {
+                                Snake[i][j].direction = Snake[i][j - 1].direction;
+                                Snake[i][j - 1] = Snake[i][j];
+                                Snake[i][j].goods_class = 0;
+                            }
+                            else if (Snake[i][j].direction == 6)
+                            {
+                                Snake[i][j].direction = Snake[i][j + 1].direction;
+                                Snake[i][j + 1] = Snake[i][j];
+                                Snake[i][j].goods_class = 0;
+                            }
+                            snake_move++;
+                            break;
+                        }
+                    }
+
+                    /*蛇头的移动*/
+                    if (Snake[i][j].goods_class == 3)
+                    {
+                        if (Snake[i][j].direction == 8)
+                            Snake[i - 1][j] = Snake[i][j];
+
+                        else if (Snake[i][j].direction == 2)
+                            Snake[i + 1][j] = Snake[i][j];
+
+                        else if (Snake[i][j].direction == 4)
+                            Snake[i][j - 1] = Snake[i][j];
+
+                        else if (Snake[i][j].direction == 6)
+                            Snake[i][j + 1] = Snake[i][j];
+                        snake_move++;
+                        break;
+                    }
+
+                    /*蛇身的移动*/
+                    if (Snake[i][j].direction == 8)
+                    {
+                        direction = Snake[i - 1][j].direction;
+                        Snake[i - 1][j] = Snake[i][j];
+                        Snake[i - 1][j].direction = direction;
+                    }
+                    else if (Snake[i][j].direction == 2)
+                    {
+                        direction = Snake[i + 1][j].direction;
+                        Snake[i + 1][j] = Snake[i][j];
+                        Snake[i + 1][j].direction = direction;
+                    }
+                    else if (Snake[i][j].direction == 4)
+                    {
+                        direction = Snake[i][j - 1].direction;
+                        Snake[i][j - 1] = Snake[i][j];
+                        Snake[i][j - 1].direction = direction;
+                    }
+                    else if (Snake[i][j].direction == 6)
+                    {
+                        direction = Snake[i][j + 1].direction;
+                        Snake[i][j + 1] = Snake[i][j];
+                        Snake[i][j + 1].direction = direction;
+                    }
+                    snake_move++;
+                    break;
+                }
+        }
+}
+
+void HideCursor()//隐藏光标函数
+{
+    CONSOLE_CURSOR_INFO cursor_info = { 1, 0 };
+    SetConsoleCursorInfo(GetStdHandle(STD_OUTPUT_HANDLE), &cursor_info);
+}
